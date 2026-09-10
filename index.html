@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Team Availability</title>
+<style>
+  :root {
+    --bg: #f3f4f6; --card: #ffffff; --text: #151922; --muted: #6b7280; --line: #e2e5ea;
+    --accent: #0b7a3b; --accent-ink: #ffffff;
+    --sel: #23a35a; --sel-soft: #e3f6ea;
+    --danger: #b91c1c; --warn: #b45309;
+    --h1: #e6f5ec; --h2: #b7e5c8; --h3: #7fd09c; --h4: #3cb36c; --h5: #0b7a3b;
+    --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216; --card: #171b21; --text: #eef0f3; --muted: #98a2b3; --line: #2a303a;
+      --accent: #3fc271; --accent-ink: #06130b;
+      --sel: #2fb867; --sel-soft: #163b25;
+      --h1: #1a2a20; --h2: #1c4a2e; --h3: #236b3f; --h4: #2c9455; --h5: #3fc271;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 16px 16px 48px; }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 4px 0 2px; letter-spacing: -.01em; }
+  h2 { font-size: 16px; margin: 0 0 8px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); margin-bottom: 14px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  input[type=text], input[type=password], input[type=number] {
+    width: 100%; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text);
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+  button { font: inherit; cursor: pointer; }
+  .btn { display: inline-block; padding: 10px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font-weight: 600; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn.danger { color: var(--danger); }
+  .btn.sm { padding: 6px 10px; font-size: 13px; font-weight: 500; }
+  .btn.link { border: none; background: none; color: var(--muted); padding: 6px 4px; font-weight: 500; text-decoration: underline; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .grow { flex: 1; }
+  .err { color: var(--danger); font-size: 13px; margin-top: 8px; min-height: 1em; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+
+  /* segmented tabs */
+  .tabs { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 14px; }
+  .tabs button { flex: 1; border: none; background: none; padding: 9px; border-radius: 9px; font-weight: 600; color: var(--muted); }
+  .tabs button.on { background: var(--accent); color: var(--accent-ink); }
+
+  /* grid */
+  .grid { display: grid; grid-template-columns: 46px repeat(7, 1fr); gap: 3px; user-select: none; -webkit-user-select: none; }
+  .grid.paint { touch-action: none; }
+  .grid .hd, .grid .rl { border: none; background: none; color: var(--muted); font-size: 12px; padding: 0; font-weight: 600; }
+  .grid .hd { height: 26px; }
+  .grid .rl { text-align: right; padding-right: 6px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .cell { height: 28px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); padding: 0; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .cell.on { background: var(--sel); border-color: var(--sel); }
+  .cell.h0 { color: transparent; }
+  .cell.h1 { background: var(--h1); }
+  .cell.h2 { background: var(--h2); color: #0b3d1f; }
+  .cell.h3 { background: var(--h3); color: #06260f; }
+  .cell.h4 { background: var(--h4); color: #fff; }
+  .cell.h5 { background: var(--h5); color: #fff; }
+  .cell.meets { box-shadow: inset 0 0 0 2px var(--text); }
+  .cell.pick { outline: 3px solid var(--warn); outline-offset: -1px; }
+  .cell.mine::after { content: ""; display: block; width: 5px; height: 5px; border-radius: 50%; background: currentColor; margin: -3px auto 0; opacity: .8; }
+  @media (max-width: 420px) { .cell { height: 26px; font-size: 11px; } .grid { grid-template-columns: 40px repeat(7, 1fr); gap: 2px; } }
+
+  .status { font-size: 13px; color: var(--muted); }
+  .status.saving { color: var(--warn); }
+  .status.saved { color: var(--accent); }
+  .status.error { color: var(--danger); }
+
+  .stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .stepper button { border: none; background: var(--bg); width: 34px; height: 34px; font-size: 18px; color: var(--text); }
+  .stepper span { min-width: 34px; text-align: center; font-weight: 700; }
+
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; border: 1px solid var(--line); }
+
+  .detail { margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--bg); font-size: 14px; }
+  .detail b { font-weight: 700; }
+
+  .win { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .win:first-of-type { border-top: none; }
+  .win .t { font-weight: 700; }
+  .win .n { color: var(--muted); font-size: 13px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--sel-soft); color: var(--accent); white-space: nowrap; }
+  .badge.full { background: var(--accent); color: var(--accent-ink); }
+
+  .pl { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+  .pl:first-of-type { border-top: none; }
+  .pl .nm { font-weight: 600; }
+  .pl .meta { color: var(--muted); font-size: 12px; }
+  .pl .stale { color: var(--warn); }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="teamName">Team Availability</h1>
+    <p class="sub" id="subtitle">Weekly availability for games, scrims and practice · all times Eastern</p>
+  </header>
+
+  <!-- LOGIN -->
+  <section id="login" class="card" hidden>
+    <h2>Who are you?</h2>
+    <label for="inName">Your name (use the same one every time)</label>
+    <input type="text" id="inName" autocomplete="nickname" maxlength="32" placeholder="e.g. pikemin">
+    <label for="inCode">Team code</label>
+    <input type="password" id="inCode" autocomplete="current-password" placeholder="ask your captain">
+    <div class="err" id="loginErr"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn primary" id="btnLogin">Let's go</button>
+      <span class="small muted">Stays signed in on this device.</span>
+    </div>
+  </section>
+
+  <section id="loading" class="card" hidden><span class="muted">Loading…</span></section>
+
+  <!-- APP -->
+  <div id="app" hidden>
+    <div class="tabs">
+      <button id="tabMe" class="on">My availability</button>
+      <button id="tabTeam">Team view</button>
+    </div>
+
+    <!-- ME -->
+    <section id="viewMe">
+      <div class="card">
+        <div class="row" style="margin-bottom:10px">
+          <h2 class="grow" style="margin:0">Hi <span id="meName"></span> — when can you play?</h2>
+          <span class="status" id="saveStatus"></span>
+        </div>
+        <p class="small muted" style="margin:0 0 10px">Tap or drag across the hours you're free. Tap a day name to toggle the whole day. Saves automatically.</p>
+        <div class="grid paint" id="paintGrid"></div>
+        <label for="inNote">Note for the captain (optional)</label>
+        <input type="text" id="inNote" maxlength="140" placeholder="e.g. Tuesdays I'm late by 30 min">
+        <div class="row" style="margin-top:12px">
+          <button class="btn sm" id="btnClear">Clear all</button>
+          <span class="grow"></span>
+          <button class="btn link" id="btnLogout">Not you? Switch player</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TEAM -->
+    <section id="viewTeam" hidden>
+      <div class="card">
+        <div class="row" style="margin-bottom:8px">
+          <h2 class="grow" style="margin:0">Who's free when</h2>
+          <span class="small muted">Need at least</span>
+          <div class="stepper"><button id="thDown" aria-label="fewer">−</button><span id="thVal">5</span><button id="thUp" aria-label="more">+</button></div>
+        </div>
+        <div class="grid" id="heatGrid"></div>
+        <div class="legend">
+          <span><i style="background:var(--h1)"></i>few</span>
+          <span><i style="background:var(--h5)"></i>everyone</span>
+          <span><i style="box-shadow:inset 0 0 0 2px var(--text)"></i>enough to play</span>
+          <span>· tap a cell to see names</span>
+        </div>
+        <div class="detail" id="detail" hidden></div>
+      </div>
+
+      <div class="card">
+        <h2>Best windows</h2>
+        <p class="small muted" style="margin:0 0 6px" id="winHint"></p>
+        <div id="windows"></div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="margin-bottom:6px"><h2 class="grow" style="margin:0">Roster</h2><span class="small muted" id="rosterCount"></span></div>
+        <div id="players"></div>
+      </div>
+
+      <div class="card" id="captainCard">
+        <div class="row"><h2 class="grow" style="margin:0">Captain tools</h2><button class="btn sm" id="btnCaptainToggle">Unlock</button></div>
+        <div id="captainLogin" hidden>
+          <label for="inCaptain">Captain code</label>
+          <div class="row"><input type="password" id="inCaptain" class="grow" style="width:auto"><button class="btn primary" id="btnCaptainGo">Unlock</button></div>
+          <div class="err" id="captainErr"></div>
+        </div>
+        <div id="captainPanel" hidden>
+          <label for="cTeamName">Team name</label>
+          <input type="text" id="cTeamName" maxlength="40">
+          <label for="cTeamCode">Team code (what players type to log in)</label>
+          <input type="text" id="cTeamCode" maxlength="40">
+          <label for="cThreshold">Default "need at least" (players for a game)</label>
+          <input type="number" id="cThreshold" min="1" max="20" style="width:90px">
+          <div class="row" style="margin-top:12px">
+            <button class="btn primary" id="btnCaptainSave">Save settings</button>
+            <span class="grow"></span>
+            <button class="btn sm danger" id="btnClearAll">Clear everyone's availability</button>
+          </div>
+          <div class="err" id="captainMsg"></div>
+          <p class="small muted" style="margin:10px 0 0">To remove a player, use the ✕ next to their name in the roster above.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  // ------------------------------------------------------------ constants
+  var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0]; // 8am .. 12am (last block ends 1am)
+  var STORE_KEY = 'teamAvail.login';
+  var STALE_DAYS = 14;
+
+  function hourLabel(h) { if (h === 0) return '12am'; if (h === 12) return '12pm'; return h < 12 ? h + 'am' : (h - 12) + 'pm'; }
+  function endLabel(h) { return hourLabel((h + 1) % 24); }
+  function key(d, h) { return d + '-' + h; }
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function ago(ts) {
+    var m = Math.round((Date.now() - ts) / 60000);
+    if (m < 2) return 'just now'; if (m < 60) return m + ' min ago';
+    var h = Math.round(m / 60); if (h < 24) return h + 'h ago';
+    var d = Math.round(h / 24); return d + 'd ago';
+  }
+  function lower(s) { return String(s).trim().toLowerCase(); }
+
+  // ------------------------------------------------------------ state
+  var S = {
+    name: '', code: '', players: [], settings: { teamName: 'Team Availability', threshold: 5 },
+    mine: {}, note: '', threshold: 5, captainCode: '', pick: null, saveTimer: null, saving: false, pendingSave: false
+  };
+
+  // ------------------------------------------------------------ server calls
+  // When this page is served by Google itself, it uses Google's built-in bridge.
+  // When it is hosted anywhere else (GitHub Pages etc.), it POSTs JSON to API_URL.
+  var API_URL = 'https://script.google.com/macros/s/AKfycbybGysSulNJeg6SZ1AMwKKt0u8kPPKz8jn99OfEK4U8aYYm7dpfAFD3DwmMSGULSPRlOA/exec';
+  var useBridge = (typeof google !== 'undefined') && google.script && google.script.run;
+  function call(action, payload) {
+    function check(res, resolve, reject) { if (res && res.ok) resolve(res); else reject(new Error((res && res.error) || 'UNKNOWN')); }
+    if (useBridge) {
+      return new Promise(function (resolve, reject) {
+        google.script.run
+          .withSuccessHandler(function (res) { check(res, resolve, reject); })
+          .withFailureHandler(function (e) { reject(e); })
+          .api(action, payload);
+      });
+    }
+    var body = Object.assign({ action: action }, payload || {});
+    // text/plain body = no CORS preflight, which Apps Script cannot answer.
+    return fetch(API_URL, { method: 'POST', body: JSON.stringify(body), redirect: 'follow' })
+      .then(function (r) { return r.json(); })
+      .then(function (res) { return new Promise(function (resolve, reject) { check(res, resolve, reject); }); });
+  }
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('show'); }, 2200); }
+  function friendlyError(e) {
+    var m = (e && e.message) || String(e);
+    if (m.indexOf('BAD_TEAM_CODE') >= 0) return 'That team code is not right.';
+    if (m.indexOf('BAD_CAPTAIN_CODE') >= 0) return 'Wrong captain code.';
+    if (m.indexOf('NO_NAME') >= 0) return 'Please enter your name.';
+    return 'Something went wrong — try again in a moment.';
+  }
+
+  function applySnapshot(res) {
+    S.players = res.players || [];
+    S.settings = res.settings || S.settings;
+    if (!S.thresholdTouched) S.threshold = S.settings.threshold || 5;
+    $('teamName').textContent = S.settings.teamName || 'Team Availability';
+    document.title = S.settings.teamName || 'Team Availability';
+    var me = null;
+    for (var i = 0; i < S.players.length; i++) if (lower(S.players[i].name) === lower(S.name)) me = S.players[i];
+    if (me && !S.pendingSave && !S.saving) {
+      S.mine = {}; (me.slots || []).forEach(function (k) { S.mine[k] = true; });
+      S.note = me.note || ''; $('inNote').value = S.note; S.name = me.name;
+    }
+    $('meName').textContent = S.name;
+    renderAll();
+  }
+
+  // ------------------------------------------------------------ login
+  function showLogin(err) {
+    $('loading').hidden = true; $('app').hidden = true; $('login').hidden = false;
+    $('loginErr').textContent = err || '';
+    if (S.name) $('inName').value = S.name;
+  }
+  function doLogin() {
+    var name = $('inName').value.trim(), code = $('inCode').value.trim();
+    if (!name) { $('loginErr').textContent = 'Please enter your name.'; return; }
+    if (!code) { $('loginErr').textContent = 'Please enter the team code.'; return; }
+    S.name = name; S.code = code;
+    $('login').hidden = true; $('loading').hidden = false;
+    call('load', { code: code }).then(function (res) {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify({ name: name, code: code })); } catch (e) {}
+      $('loading').hidden = true; $('app').hidden = false;
+      applySnapshot(res);
+    }).catch(function (e) { showLogin(friendlyError(e)); });
+  }
+  function logout() {
+    try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+    S.name = ''; S.code = ''; S.mine = {}; S.note = ''; $('inNote').value = ''; $('inCode').value = '';
+    showLogin('');
+  }
+
+  // ------------------------------------------------------------ paint grid
+  function buildGrid(el, interactive) {
+    var html = '<div></div>';
+    DAYS.forEach(function (d, di) { html += '<button class="hd" data-day="' + di + '">' + d + '</button>'; });
+    HOURS.forEach(function (h) {
+      html += '<button class="rl" data-hour="' + h + '">' + hourLabel(h) + '</button>';
+      DAYS.forEach(function (d, di) { html += '<button class="cell" data-key="' + key(di, h) + '" aria-label="' + d + ' ' + hourLabel(h) + '"></button>'; });
+    });
+    el.innerHTML = html;
+  }
+
+  function renderPaint() {
+    var cells = $('paintGrid').querySelectorAll('.cell');
+    for (var i = 0; i < cells.length; i++) cells[i].classList.toggle('on', !!S.mine[cells[i].dataset.key]);
+  }
+
+  function setSlot(k, on) { if (on) S.mine[k] = true; else delete S.mine[k]; }
+  function scheduleSave() {
+    S.pendingSave = true;
+    setStatus('saving', 'Unsaved…');
+    clearTimeout(S.saveTimer);
+    S.saveTimer = setTimeout(saveNow, 700);
+  }
+  function setStatus(cls, txt) { var s = $('saveStatus'); s.className = 'status ' + cls; s.textContent = txt; }
+  function saveNow() {
+    if (S.saving) { S.pendingSave = true; return; }
+    S.saving = true; S.pendingSave = false;
+    setStatus('saving', 'Saving…');
+    call('save', { code: S.code, name: S.name, slots: Object.keys(S.mine), note: $('inNote').value.trim() })
+      .then(function (res) {
+        S.saving = false;
+        if (S.pendingSave) { saveNow(); return; }
+        setStatus('saved', 'Saved ✓');
+        applySnapshot(res);
+      })
+      .catch(function (e) {
+        S.saving = false; S.pendingSave = true;
+        setStatus('error', 'Not saved — tap to retry');
+        if (String(e && e.message).indexOf('BAD_TEAM_CODE') >= 0) { showLogin('The team code changed — ask your captain for the new one.'); }
+      });
+  }
+
+  function wirePaint() {
+    var grid = $('paintGrid');
+    var mode = null; // true = painting on, false = painting off
+    var visited = {};
+    function cellAt(x, y) { var el = document.elementFromPoint(x, y); return el && el.classList && el.classList.contains('cell') && grid.contains(el) ? el : null; }
+    grid.addEventListener('pointerdown', function (e) {
+      var t = e.target;
+      if (t.classList.contains('hd')) { // toggle whole day
+        var di = t.dataset.day, allOn = HOURS.every(function (h) { return S.mine[key(di, h)]; });
+        HOURS.forEach(function (h) { setSlot(key(di, h), !allOn); });
+        renderPaint(); scheduleSave(); return;
+      }
+      if (t.classList.contains('rl')) { // toggle whole hour row
+        var h = Number(t.dataset.hour), rowOn = DAYS.every(function (_, di) { return S.mine[key(di, h)]; });
+        DAYS.forEach(function (_, di) { setSlot(key(di, h), !rowOn); });
+        renderPaint(); scheduleSave(); return;
+      }
+      if (!t.classList.contains('cell')) return;
+      e.preventDefault();
+      mode = !S.mine[t.dataset.key]; visited = {};
+      visited[t.dataset.key] = 1; setSlot(t.dataset.key, mode); renderPaint();
+      try { grid.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    grid.addEventListener('pointermove', function (e) {
+      if (mode === null) return;
+      var c = cellAt(e.clientX, e.clientY);
+      if (c && !visited[c.dataset.key]) { visited[c.dataset.key] = 1; setSlot(c.dataset.key, mode); renderPaint(); }
+    });
+    function end() { if (mode !== null) { mode = null; scheduleSave(); } }
+    grid.addEventListener('pointerup', end);
+    grid.addEventListener('pointercancel', end);
+    $('btnClear').addEventListener('click', function () { S.mine = {}; renderPaint(); scheduleSave(); });
+    $('inNote').addEventListener('input', scheduleSave);
+    $('saveStatus').addEventListener('click', function () { if (S.pendingSave && !S.saving) saveNow(); });
+  }
+
+  // ------------------------------------------------------------ team view
+  function countsBySlot() {
+    var m = {};
+    S.players.forEach(function (p) { (p.slots || []).forEach(function (k) { (m[k] = m[k] || []).push(p.name); }); });
+    return m;
+  }
+  function renderHeat() {
+    var by = countsBySlot(), total = S.players.length || 1;
+    var cells = $('heatGrid').querySelectorAll('.cell');
+    for (var i = 0; i < cells.length; i++) {
+      var c = cells[i], k = c.dataset.key, n = (by[k] || []).length;
+      var lvl = n === 0 ? 0 : n >= total ? 5 : Math.max(1, Math.ceil(n / total * 4));
+      c.className = 'cell h' + lvl + (n >= S.threshold && n > 0 ? ' meets' : '') + (S.mine[k] ? ' mine' : '') + (S.pick === k ? ' pick' : '');
+      c.textContent = n || '';
+    }
+    $('thVal').textContent = S.threshold;
+    renderDetail(by);
+  }
+  function renderDetail(by) {
+    var d = $('detail');
+    if (!S.pick) { d.hidden = true; return; }
+    var parts = S.pick.split('-'), di = Number(parts[0]), h = Number(parts[1]);
+    var inn = by[S.pick] || [], out = S.players.map(function (p) { return p.name; }).filter(function (n) { return inn.indexOf(n) < 0; });
+    d.hidden = false;
+    d.innerHTML = '<b>' + DAYS[di] + ' ' + hourLabel(h) + '–' + endLabel(h) + '</b> · ' + inn.length + ' of ' + S.players.length +
+      '<div style="margin-top:4px"><span class="muted">In:</span> ' + (inn.length ? esc(inn.join(', ')) : '—') + '</div>' +
+      (out.length ? '<div><span class="muted">Out:</span> ' + esc(out.join(', ')) + '</div>' : '<div class="muted">Everyone is in.</div>');
+  }
+
+  // Windows = runs of consecutive hours where the SAME group of >= threshold players can all play.
+  function bestWindows() {
+    var by = countsBySlot(), wins = [];
+    for (var di = 0; di < 7; di++) {
+      var i = 0;
+      while (i < HOURS.length) {
+        var group = by[key(di, HOURS[i])] || [];
+        if (group.length < S.threshold) { i++; continue; }
+        var set = group.slice(), j = i + 1;
+        while (j < HOURS.length) {
+          var next = by[key(di, HOURS[j])] || [];
+          var inter = set.filter(function (n) { return next.indexOf(n) >= 0; });
+          if (inter.length < S.threshold) break;
+          set = inter; j++;
+        }
+        wins.push({ day: di, from: i, to: j - 1, who: set });
+        i = j;
+      }
+    }
+    wins.sort(function (a, b) { return b.who.length - a.who.length || (b.to - b.from) - (a.to - a.from) || a.day - b.day || a.from - b.from; });
+    return wins;
+  }
+  function renderWindows() {
+    var wins = bestWindows(), total = S.players.length, el = $('windows');
+    $('winHint').textContent = total ? 'Times when at least ' + S.threshold + ' of ' + total + ' can play the whole stretch.' : 'No one has filled in availability yet.';
+    if (!wins.length) { el.innerHTML = '<p class="muted small" style="margin:0">Nothing meets that bar yet — lower "need at least" or nudge the team.</p>'; return; }
+    el.innerHTML = wins.slice(0, 10).map(function (w) {
+      var missing = S.players.map(function (p) { return p.name; }).filter(function (n) { return w.who.indexOf(n) < 0; });
+      var full = w.who.length >= total;
+      return '<div class="win"><div><div class="t">' + DAYS[w.day] + ' ' + hourLabel(HOURS[w.from]) + '–' + endLabel(HOURS[w.to]) + '</div>' +
+        '<div class="n">' + (full ? 'Everyone' : 'Missing: ' + esc(missing.join(', '))) + '</div></div>' +
+        '<div><span class="badge' + (full ? ' full' : '') + '">' + w.who.length + '/' + total + '</span></div></div>';
+    }).join('');
+  }
+  function renderPlayers() {
+    var el = $('players');
+    $('rosterCount').textContent = S.players.length + (S.players.length === 1 ? ' player' : ' players');
+    if (!S.players.length) { el.innerHTML = '<p class="muted small" style="margin:0">No one yet. Share the link and team code.</p>'; return; }
+    el.innerHTML = S.players.map(function (p) {
+      var stale = Date.now() - (p.updated || 0) > STALE_DAYS * 86400000;
+      return '<div class="pl"><div class="grow"><span class="nm">' + esc(p.name) + '</span>' +
+        (lower(p.name) === lower(S.name) ? ' <span class="badge">you</span>' : '') +
+        '<div class="meta">' + (p.slots || []).length + ' hrs · updated <span class="' + (stale ? 'stale' : '') + '">' + ago(p.updated || 0) + '</span>' +
+        (p.note ? ' · “' + esc(p.note) + '”' : '') + '</div></div>' +
+        (S.captainCode ? '<button class="btn sm danger" data-remove="' + esc(p.name) + '" aria-label="remove">✕</button>' : '') + '</div>';
+    }).join('');
+  }
+  function renderAll() { renderPaint(); renderHeat(); renderWindows(); renderPlayers(); }
+
+  function wireTeam() {
+    $('heatGrid').addEventListener('click', function (e) {
+      var t = e.target; if (!t.classList.contains('cell')) return;
+      S.pick = S.pick === t.dataset.key ? null : t.dataset.key; renderHeat();
+    });
+    $('thDown').addEventListener('click', function () { S.threshold = Math.max(1, S.threshold - 1); S.thresholdTouched = true; renderHeat(); renderWindows(); });
+    $('thUp').addEventListener('click', function () { S.threshold = Math.min(20, S.threshold + 1); S.thresholdTouched = true; renderHeat(); renderWindows(); });
+    $('players').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-remove]'); if (!b) return;
+      var name = b.dataset.remove;
+      if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Remove ' + name + '?'; setTimeout(function () { b.dataset.armed = ''; b.textContent = '✕'; }, 3000); return; }
+      call('captain', { captainCode: S.captainCode, op: 'remove', name: name }).then(function (res) { toast('Removed ' + name); applySnapshot(res); }).catch(function (e) { toast(friendlyError(e)); });
+    });
+  }
+
+  // ------------------------------------------------------------ captain
+  function wireCaptain() {
+    $('btnCaptainToggle').addEventListener('click', function () {
+      if (S.captainCode) { S.captainCode = ''; try { sessionStorage.removeItem('teamAvail.captain'); } catch (e) {} $('captainPanel').hidden = true; $('btnCaptainToggle').textContent = 'Unlock'; renderPlayers(); return; }
+      var l = $('captainLogin'); l.hidden = !l.hidden; if (!l.hidden) $('inCaptain').focus();
+    });
+    function unlock(code) {
+      return call('captain', { captainCode: code, op: 'verify' }).then(function (res) {
+        S.captainCode = code; try { sessionStorage.setItem('teamAvail.captain', code); } catch (e) {}
+        $('captainLogin').hidden = true; $('captainPanel').hidden = false; $('btnCaptainToggle').textContent = 'Lock';
+        $('cTeamName').value = res.settings.teamName; $('cTeamCode').value = res.teamCode || ''; $('cThreshold').value = res.settings.threshold;
+        applySnapshot(res);
+      });
+    }
+    $('btnCaptainGo').addEventListener('click', function () {
+      $('captainErr').textContent = '';
+      unlock($('inCaptain').value.trim()).catch(function (e) { $('captainErr').textContent = friendlyError(e); });
+    });
+    $('btnCaptainSave').addEventListener('click', function () {
+      var newCode = $('cTeamCode').value.trim();
+      call('captain', { captainCode: S.captainCode, op: 'settings', teamName: $('cTeamName').value.trim(), teamCode: newCode, threshold: Number($('cThreshold').value) })
+        .then(function (res) {
+          if (newCode) { S.code = newCode; try { localStorage.setItem(STORE_KEY, JSON.stringify({ name: S.name, code: newCode })); } catch (e) {} }
+          S.thresholdTouched = false; $('captainMsg').textContent = ''; toast('Settings saved'); applySnapshot(res);
+        }).catch(function (e) { $('captainMsg').textContent = friendlyError(e); });
+    });
+    var clearBtn = $('btnClearAll');
+    clearBtn.addEventListener('click', function () {
+      if (clearBtn.dataset.armed !== '1') { clearBtn.dataset.armed = '1'; clearBtn.textContent = 'Really clear everyone? Tap again'; setTimeout(function () { clearBtn.dataset.armed = ''; clearBtn.textContent = "Clear everyone's availability"; }, 4000); return; }
+      clearBtn.dataset.armed = ''; clearBtn.textContent = "Clear everyone's availability";
+      call('captain', { captainCode: S.captainCode, op: 'clearAll' }).then(function (res) { S.mine = {}; toast('Cleared'); applySnapshot(res); }).catch(function (e) { toast(friendlyError(e)); });
+    });
+    try { var saved = sessionStorage.getItem('teamAvail.captain'); if (saved) unlock(saved).catch(function () {}); } catch (e) {}
+  }
+
+  // ------------------------------------------------------------ tabs + boot
+  function showTab(which) {
+    $('tabMe').classList.toggle('on', which === 'me'); $('tabTeam').classList.toggle('on', which === 'team');
+    $('viewMe').hidden = which !== 'me'; $('viewTeam').hidden = which !== 'team';
+    if (which === 'team') { call('load', { code: S.code }).then(applySnapshot).catch(function () {}); }
+  }
+
+  buildGrid($('paintGrid'), true);
+  buildGrid($('heatGrid'), false);
+  wirePaint(); wireTeam(); wireCaptain();
+  $('tabMe').addEventListener('click', function () { showTab('me'); });
+  $('tabTeam').addEventListener('click', function () { showTab('team'); });
+  $('btnLogin').addEventListener('click', doLogin);
+  $('inCode').addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
+  $('inName').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('inCode').focus(); });
+  $('btnLogout').addEventListener('click', logout);
+
+  var remembered = null;
+  try { remembered = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
+  if (remembered && remembered.name && remembered.code) {
+    $('inName').value = remembered.name; $('inCode').value = remembered.code; doLogin();
+  } else {
+    showLogin('');
+  }
+})();
+</script>
+</body>
+</html>
